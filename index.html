@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Thermal Detective: Classified Cases</title>
     <style>
-        /* --- Styles remain the same as your previous version --- */
+        /* --- Styles remain the same --- */
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #1a1a1a; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; }
         h1 { color: #ffff00; text-shadow: 2px 2px #ff0000; margin: 5px 0 8px 0; font-size: 2em; text-align: center; flex-shrink: 0; }
         #ui-layout-container { display: flex; flex-direction: column; flex-grow: 1; width: 100%; overflow: hidden; }
@@ -43,6 +43,7 @@
     </style>
 </head>
 <body>
+    <!-- UI Layout remains the same -->
     <h1>Thermal Detective</h1>
     <button id="mute-button" onclick="toggleMute()">Mute</button>
 
@@ -89,75 +90,22 @@
      <div id="loading-screen">Loading Assets...</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
     <script>
-        // --- Global Variables ---
+        // --- Globals, Constants, Assets, Game Data (remain the same) ---
         let scene, camera, renderer, raycaster, mouse;
-        let gameObjects = [];
-        let currentCase = null;
-        let currentLocation = 'agency';
-        let notebookContent = "Notebook Online.\n";
-        let audioContext, masterGain, bgmSource = null;
-        let isMuted = false;
-        let availableLocations = ['agency', 'park', 'school', 'hospital_lobby', 'ice_cream_shop'];
-        let currentLocationIndex = 0;
-        let hoveredObject = null;
-        let tooltipElement;
-        const clock = new THREE.Clock();
-        let particles = []; // For non-text effects (clicks, success?)
-        let particleSystemNeedsUpdate = false;
-        let particleTexture; // Simple square texture
-        let nextLoopStartTime = 0;
-        let bgmTimer = null;
-        let textureLoader;
-        let loadingManager;
-        let assetsLoaded = false;
-        let activeAnimations = []; // Object pulse/shake/glow
-        let flyingTexts = []; // For the text rockets
-        let cameraTargetZoom = 1;
-        let cameraCurrentZoom = 1;
-        let cameraBaseFrustumSize = 16;
-        let cameraTargetPosition = new THREE.Vector3(0, 0, 10);
-        let gameContainerElement;
+        let gameObjects = []; let currentCase = null; let currentLocation = 'agency'; let notebookContent = "Notebook Online.\n"; let audioContext, masterGain, bgmSource = null; let isMuted = false; let availableLocations = ['agency', 'park', 'school', 'hospital_lobby', 'ice_cream_shop']; let currentLocationIndex = 0; let hoveredObject = null; let tooltipElement; const clock = new THREE.Clock(); let particles = []; let particleSystemNeedsUpdate = false; let particleTexture; let nextLoopStartTime = 0; let bgmTimer = null; let textureLoader; let loadingManager; let assetsLoaded = false; let activeAnimations = []; let flyingTexts = []; let cameraTargetZoom = 1; let cameraCurrentZoom = 1; let cameraBaseFrustumSize = 16; let cameraTargetPosition = new THREE.Vector3(0, 0, 10); let gameContainerElement;
+        const PARTICLE_COUNT_CLICK = 8; const PARTICLE_COUNT_SUCCESS = 15; const PARTICLE_LIFESPAN = 0.6; const BACKDROP_OPACITY = 0.55; const USE_PLACEHOLDERS = false; const CAMERA_ZOOM_SPEED = 0.08; const CAMERA_DRIFT_SPEED = 0.05; const MAX_CAMERA_DRIFT = 0.15; const FLYING_TEXT_LIFESPAN = 2.5; const FLYING_TEXT_SPEED = 5.0; const FLYING_TEXT_PARTICLE_RATE = 0.03; const FLYING_TEXT_PARTICLE_COUNT = 2;
+        const SHADOW_OFFSET_X = 0.08; // Fine tune these values
+        const SHADOW_OFFSET_Y = -0.08;
+        const SHADOW_OPACITY = 0.4;
+        const SHADOW_COLOR = 0x000000;
 
-        // --- Constants ---
-        // Particle counts might be reduced if text effect is primary
-        const PARTICLE_COUNT_CLICK = 8;
-        const PARTICLE_COUNT_SUCCESS = 15;
-        // Error particles replaced by text rockets
-        // const PARTICLE_COUNT_ERROR = 15;
-        const PARTICLE_LIFESPAN = 0.6;
-        const BACKDROP_OPACITY = 0.55;
-        const USE_PLACEHOLDERS = false;
-        const CAMERA_ZOOM_SPEED = 0.08;
-        const CAMERA_DRIFT_SPEED = 0.05;
-        const MAX_CAMERA_DRIFT = 0.15;
-        const FLYING_TEXT_LIFESPAN = 2.5; // Seconds the text flies
-        const FLYING_TEXT_SPEED = 5.0;    // Units per second
-        const FLYING_TEXT_PARTICLE_RATE = 0.03; // Seconds between trail spawns
-        const FLYING_TEXT_PARTICLE_COUNT = 2; // Particles per trail spawn
-
-        // --- List of Error Messages ---
-        const errorMessages = [
-            "Try again, genius.", "Not quite...", "Is that your final answer?",
-            "Consult the manual?", "Wrong tool, detective!", "Think harder!",
-            "Negative.", "Error: Brain not found.", "Maybe check your notes?",
-            "Incorrect input.", "Seriously?", "I expected better.",
-            "Are you even trying?", "That's... not it."
-        ];
-
-        // --- Asset Mapping ---
-        const assetUrls = { /* ... Same asset URLs ... */
-             'player': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/detective-removebg-preview.png', 'prof_kelvin': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/thermo-removebg-preview.png', 'dr_fahrenheit': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Dr._Fahrenheit-removebg-preview.png', 'librarian_leo': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Librarian_Leo_character-removebg-preview.png', 'worried_parent': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Gable_character-removebg-preview.png', 'scoops_mcgee': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/chef-removebg-preview.png', 'bench': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Park_bench-removebg-preview.png', 'bookshelf': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/School%20library%20bookshelf.png?raw=true', 'reception_desk': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/reception%20desk.png?raw=true', 'freezer': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/freezer.png?raw=true', 'counter': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/icecreamcounter.png?raw=true', 'agency_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/detectiveoffice.jpg', 'park_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/park.png', 'school_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/library.png?raw=true', 'hospital_lobby_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/hospital.png?raw=true', 'ice_cream_shop_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/icecreamshop.png?raw=true'
-        };
+        const errorMessages = [ /* ... same messages ... */ "Try again, genius.", "Not quite...", "Is that your final answer?", "Consult the manual?", "Wrong tool, detective!", "Think harder!", "Negative.", "Error: Brain not found.", "Maybe check your notes?", "Incorrect input.", "Seriously?", "I expected better.", "Are you even trying?", "That's... not it." ];
+        const assetUrls = { /* ... Same asset URLs ... */ 'player': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/detective-removebg-preview.png', 'prof_kelvin': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/thermo-removebg-preview.png', 'dr_fahrenheit': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Dr._Fahrenheit-removebg-preview.png', 'librarian_leo': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Librarian_Leo_character-removebg-preview.png', 'worried_parent': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Gable_character-removebg-preview.png', 'scoops_mcgee': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/chef-removebg-preview.png', 'bench': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/Park_bench-removebg-preview.png', 'bookshelf': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/School%20library%20bookshelf.png?raw=true', 'reception_desk': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/reception%20desk.png?raw=true', 'freezer': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/freezer.png?raw=true', 'counter': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/icecreamcounter.png?raw=true', 'agency_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/detectiveoffice.jpg', 'park_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/park.png', 'school_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/library.png?raw=true', 'hospital_lobby_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/hospital.png?raw=true', 'ice_cream_shop_bg': 'https://raw.githubusercontent.com/wolverinex24/Thermal-Detective/master/icecreamshop.png?raw=true' };
         const textures = {};
-
-        // --- Game Data ---
-        const cases = [ /* ... Same cases data ... */
-             { id: 1, title: "The Fever Mystery", description: "Mr. Gable (Worried Parent) thinks their child might have a fever. Find them at the Hospital Lobby.", location: 'hospital_lobby', objective: "Measure the child's temperature correctly.", cluesNeeded: ['child_temp_measured'], requiredThermometer: 'clinical', targetObjectName: 'Worried Parent', successMessage: "Correct! The clinical thermometer shows 38.5°C (101.3°F). A mild fever. Advised seeing Dr. Fahrenheit.", failureMessage: "Use the Clinical Thermometer on the Worried Parent.", solved: false, educationalNote: "Normal body temp ~37°C (98.6°F). Fever > 38°C (100.4°F)." }, { id: 2, title: "The Ice Cream Meltdown", description: "Scoops McGee's ice cream is melting! Check his freezer at the Ice Cream Shop.", location: 'ice_cream_shop', objective: "Measure the temperature inside the main freezer.", cluesNeeded: ['freezer_temp_measured'], requiredThermometer: 'lab', targetObjectName: 'Freezer', successMessage: "The Lab thermometer reads -5°C (23°F)! Too warm! Should be ~ -18°C (0°F). Advised repair.", failureMessage: "Measure the Freezer temperature. A Lab or Infrared thermometer might work.", solved: false, educationalNote: "Freezers need temps well below 0°C (32°F). Heat transfer causes warming without proper cooling." }
-        ];
-        const locationData = { /* ... Same locationData with updated positions ... */
-             'agency': { backgroundAsset: 'agency_bg', objects: [ { name: 'Your Desk', type: 'scenery', pixelArt: 'reception_desk', x: 0, y: -3.5, z: -0.5, scale: 7, dialogue: "Your base of operations." } ] }, 'park': { backgroundAsset: 'park_bg', objects: [ { name: 'Bench', type: 'scenery', pixelArt: 'bench', x: 8, y: -3, z: -0.5, scale: 8, dialogue: "A nice park bench." }, { name: 'Professor Kelvin', type: 'character', pixelArt: 'prof_kelvin', x: -3, y: -3.5, z: 0, scale: 5, dialogue: "Ah, young detective! Careful observation is key!" } ] }, 'school': { backgroundAsset: 'school_bg', objects: [ { name: 'Bookshelf', type: 'scenery', pixelArt: 'bookshelf', x: -3, y: 2, z: -0.5, scale: 5, dialogue: "Full of interesting books." }, { name: 'Librarian Leo', type: 'character', pixelArt: 'librarian_leo', x: 3, y: -2, z: 0, scale: 6, dialogue: "Need research? The library has resources on temperature scales!" } ] }, 'hospital_lobby': { backgroundAsset: 'hospital_lobby_bg', objects: [ { name: 'Reception Desk', type: 'scenery', pixelArt: 'reception_desk', x: 0, y: -5, z: -0.5, scale: 6, dialogue: "The hospital reception." }, { name: 'Dr. Fahrenheit', type: 'character', pixelArt: 'dr_fahrenheit', x: 3.5, y: -2, z: -1, scale: 6, dialogue: "Accurate temperature is vital in medicine.Talk to parent, Good work!" }, { name: 'Worried Parent', type: 'target', pixelArt: 'worried_parent', x: -3.5, y: -2, z: -1, dialogue: "Detective! Please check my child!", caseId: 1, scale: 6 } ] }, 'ice_cream_shop': { backgroundAsset: 'ice_cream_shop_bg', objects: [ { name: 'Counter', type: 'scenery', pixelArt: 'counter', x: 0, y: -3.5, z: 0, scale: 6, dialogue: "Where the ice cream is served." }, { name: 'Freezer', type: 'target', pixelArt: 'freezer', x: -4, y: -3.5, z: -0.5, scale: 3.5, caseId: 2, dialogue: "Looks chilly... or is it?" }, { name: 'Scoops McGee', type: 'character', pixelArt: 'scoops_mcgee', x: 3, y: -3, z: 1, scale: 7, dialogue: "My ice cream! It's ruined! Check that freezer!" } ] }
-        };
+        const cases = [ /* ... Same cases data ... */ { id: 1, title: "The Fever Mystery", description: "Mr. Gable (Worried Parent) thinks their child might have a fever. Find them at the Hospital Lobby.", location: 'hospital_lobby', objective: "Measure the child's temperature correctly.", cluesNeeded: ['child_temp_measured'], requiredThermometer: 'clinical', targetObjectName: 'Worried Parent', successMessage: "Correct! The clinical thermometer shows 38.5°C (101.3°F). A mild fever. Advised seeing Dr. Fahrenheit.", failureMessage: "Use the Clinical Thermometer on the Worried Parent.", solved: false, educationalNote: "Normal body temp ~37°C (98.6°F). Fever > 38°C (100.4°F)." }, { id: 2, title: "The Ice Cream Meltdown", description: "Scoops McGee's ice cream is melting! Check his freezer at the Ice Cream Shop.", location: 'ice_cream_shop', objective: "Measure the temperature inside the main freezer.", cluesNeeded: ['freezer_temp_measured'], requiredThermometer: 'lab', targetObjectName: 'Freezer', successMessage: "The Lab thermometer reads -5°C (23°F)! Too warm! Should be ~ -18°C (0°F). Advised repair.", failureMessage: "Measure the Freezer temperature. A Lab or Infrared thermometer might work.", solved: false, educationalNote: "Freezers need temps well below 0°C (32°F). Heat transfer causes warming without proper cooling." } ];
+        const locationData = { /* ... Same updated locationData ... */ 'agency': { backgroundAsset: 'agency_bg', objects: [ { name: 'Your Desk', type: 'scenery', pixelArt: 'reception_desk', x: 0, y: -3.5, z: -0.5, scale: 7, dialogue: "Your base of operations." } ] }, 'park': { backgroundAsset: 'park_bg', objects: [ { name: 'Bench', type: 'scenery', pixelArt: 'bench', x: 8, y: -3, z: -0.5, scale: 8, dialogue: "A nice park bench." }, { name: 'Professor Kelvin', type: 'character', pixelArt: 'prof_kelvin', x: -3, y: -3.5, z: 0, scale: 5, dialogue: "Ah, young detective! Careful observation is key!" } ] }, 'school': { backgroundAsset: 'school_bg', objects: [ { name: 'Bookshelf', type: 'scenery', pixelArt: 'bookshelf', x: -3, y: 2, z: -0.5, scale: 5, dialogue: "Full of interesting books." }, { name: 'Librarian Leo', type: 'character', pixelArt: 'librarian_leo', x: 3, y: -2, z: 0, scale: 6, dialogue: "Need research? The library has resources on temperature scales!" } ] }, 'hospital_lobby': { backgroundAsset: 'hospital_lobby_bg', objects: [ { name: 'Reception Desk', type: 'scenery', pixelArt: 'reception_desk', x: 0, y: -5, z: -0.5, scale: 6, dialogue: "The hospital reception." }, { name: 'Dr. Fahrenheit', type: 'character', pixelArt: 'dr_fahrenheit', x: 3.5, y: -2, z: -1, scale: 6, dialogue: "Accurate temperature is vital in medicine.Talk to parent, Good work!" }, { name: 'Worried Parent', type: 'target', pixelArt: 'worried_parent', x: -3.5, y: -2, z: -1, dialogue: "Detective! Please check my child!", caseId: 1, scale: 6 } ] }, 'ice_cream_shop': { backgroundAsset: 'ice_cream_shop_bg', objects: [ { name: 'Counter', type: 'scenery', pixelArt: 'counter', x: 0, y: -3.5, z: 0, scale: 6, dialogue: "Where the ice cream is served." }, { name: 'Freezer', type: 'target', pixelArt: 'freezer', x: -4, y: -3.5, z: -0.5, scale: 3.5, caseId: 2, dialogue: "Looks chilly... or is it?" }, { name: 'Scoops McGee', type: 'character', pixelArt: 'scoops_mcgee', x: 3, y: -3, z: 1, scale: 7, dialogue: "My ice cream! It's ruined! Check that freezer!" } ] } };
 
         // --- Initialization ---
         function init() { /* ... Same init logic ... */ console.log("Initializing game..."); tooltipElement = document.getElementById('tooltip'); gameContainerElement = document.getElementById('game-container'); const loadingScreen = document.getElementById('loading-screen'); try { window.AudioContext = window.AudioContext || window.webkitAudioContext; audioContext = new AudioContext(); masterGain = audioContext.createGain(); masterGain.gain.value = 1.0; masterGain.connect(audioContext.destination); const unlockAudio = () => { if (!audioContext) return; if (audioContext.state === 'suspended') { audioContext.resume().then(() => { console.log("AudioContext resumed."); if (!isMuted && assetsLoaded) startBGM(); }).catch(e => console.error("Error resuming AudioContext:", e)); } else if (audioContext.state === 'running') { if (!isMuted && !bgmSource && assetsLoaded) startBGM(); } document.body.removeEventListener('click', unlockAudio, true); document.body.removeEventListener('touchend', unlockAudio, true); }; document.body.addEventListener('click', unlockAudio, true); document.body.addEventListener('touchend', unlockAudio, true); } catch (e) { console.warn('Web Audio API failed:', e); isMuted = true; if(document.getElementById('mute-button')) { document.getElementById('mute-button').disabled = true; document.getElementById('mute-button').innerText = 'No Audio'; document.getElementById('mute-button').style.opacity = 0.5; } } scene = new THREE.Scene(); const aspect = gameContainerElement.clientWidth / gameContainerElement.clientHeight || 1; camera = new THREE.OrthographicCamera(cameraBaseFrustumSize * aspect / -2, cameraBaseFrustumSize * aspect / 2, cameraBaseFrustumSize / 2, cameraBaseFrustumSize / -2, 0.1, 100); camera.position.copy(cameraTargetPosition); cameraCurrentZoom = camera.zoom; renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true }); renderer.setSize(gameContainerElement.clientWidth, gameContainerElement.clientHeight); renderer.setPixelRatio(window.devicePixelRatio); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%'; gameContainerElement.appendChild(renderer.domElement); raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2(); particleTexture = createPixelParticleTexture(); console.log("Three.js scene, camera, renderer initialized."); loadingManager = new THREE.LoadingManager( () => { console.log("Loading Manager: All assets loaded!"); assetsLoaded = true; loadingScreen.style.display = 'none'; setupInitialGame(); if (!isMuted && audioContext && audioContext.state === 'running') { startBGM(); } }, (url, itemsLoaded, itemsTotal) => { const progress = Math.round((itemsLoaded / itemsTotal) * 100); loadingScreen.innerText = `Loading Assets: ${progress}%`; }, (url) => { console.error('Loading Manager: Error loading file:', url); loadingScreen.innerText = `Error loading assets. Please refresh.`; } ); textureLoader = new THREE.TextureLoader(loadingManager); console.log("Starting texture loading..."); let assetCount = 0; for (const key in assetUrls) { assetCount++; if (USE_PLACEHOLDERS) { /* disabled */ } else { textures[key] = textureLoader.load(assetUrls[key], undefined, undefined, () => { console.error(`Failed to load texture: ${key} from ${assetUrls[key]}`); }); } } console.log(`Initiated loading for ${assetCount} assets.`); window.addEventListener('resize', onWindowResize, false); renderer.domElement.addEventListener('mousemove', onMouseMove, false); renderer.domElement.addEventListener('click', onMouseClick, false); renderer.domElement.addEventListener('mouseleave', onMouseLeave, false); animate(); console.log("Initialization complete, awaiting asset loading..."); }
@@ -167,190 +115,67 @@
 
         // --- Texture Generation ---
         function createPixelParticleTexture() { /* ... Same logic ... */ const size = 8; const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(1, 1, size - 2, size - 2); const texture = new THREE.CanvasTexture(canvas); texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.NearestFilter; return texture; }
-
-        // --- Flying Text Texture Generation ---
-        function createFlyingTextTexture(text, options = {}) {
-            const {
-                font = '16px Courier New',
-                textColor = '#FF6666', // Reddish for errors
-                bgColor = 'rgba(0, 0, 0, 0.6)', // Semi-transparent dark background
-                padding = 8,
-                maxWidth = 200 // Max width before wrapping (approx)
-            } = options;
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.font = font;
-
-            // Measure text width
-            const textMetrics = ctx.measureText(text);
-            let textWidth = textMetrics.width;
-
-            // Basic word wrapping (optional, might make texture huge)
-            // For simplicity, we'll mostly rely on maxWidth and truncate if needed
-            if (textWidth > maxWidth) {
-                // Truncate or implement wrapping logic here if desired
-                // text = text.substring(0, ...) + '...';
-                 textWidth = maxWidth; // Adjust estimated width
-            }
-
-            const canvasWidth = textWidth + padding * 2;
-            // Estimate height based on font size (e.g., 1.2 * fontSize)
-            const fontSize = parseInt(font.match(/(\d+)px/)[1], 10);
-            const canvasHeight = fontSize * 1.4 + padding * 2;
-
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-
-            // Re-apply font after resize
-            ctx.font = font;
-
-            // Background
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-            // Text
-            ctx.fillStyle = textColor;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, canvasWidth / 2, canvasHeight / 2);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.needsUpdate = true;
-            return texture;
-        }
-
+        function createFlyingTextTexture(text, options = {}) { /* ... Same logic ... */ const { font = '16px Courier New', textColor = '#FF6666', bgColor = 'rgba(0, 0, 0, 0.6)', padding = 8, maxWidth = 200 } = options; const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); ctx.font = font; const textMetrics = ctx.measureText(text); let textWidth = textMetrics.width; if (textWidth > maxWidth) { textWidth = maxWidth; } const canvasWidth = textWidth + padding * 2; const fontSize = parseInt(font.match(/(\d+)px/)[1], 10); const canvasHeight = fontSize * 1.4 + padding * 2; canvas.width = canvasWidth; canvas.height = canvasHeight; ctx.font = font; ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvasWidth, canvasHeight); ctx.fillStyle = textColor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, canvasWidth / 2, canvasHeight / 2); const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true; return texture; }
 
         // --- Particle System ---
-        // SpawnParticles is now mainly for non-text effects (clicks, success)
-        function spawnParticles(config) { /* ... Same logic as before ... */ if (!particleTexture || isMuted) return; const defaultConf = { count: 10, position: new THREE.Vector3(0,0,1), color: new THREE.Color(0xffffff), size: 0.15, velocityRange: 1.5, type: 'sparkle', lifespan: PARTICLE_LIFESPAN, gravity: 2.5 }; const finalConf = { ...defaultConf, ...config }; for (let i = 0; i < finalConf.count; i++) { const material = new THREE.SpriteMaterial({ map: particleTexture, color: finalConf.color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, }); const sprite = new THREE.Sprite(material); sprite.position.copy(finalConf.position); sprite.position.x += (Math.random() - 0.5) * 0.15; sprite.position.y += (Math.random() - 0.5) * 0.15; sprite.position.z += (Math.random() - 0.5) * 0.05; sprite.scale.set(finalConf.size, finalConf.size, 1); const baseVelocityY = finalConf.velocityRange * 0.5; const particle = { mesh: sprite, velocity: new THREE.Vector3( (Math.random() - 0.5) * finalConf.velocityRange, (Math.random() - 0.5) * finalConf.velocityRange + baseVelocityY, (Math.random() - 0.5) * finalConf.velocityRange * 0.1 ), life: finalConf.lifespan, initialLife: finalConf.lifespan, type: finalConf.type, gravity: finalConf.gravity }; particles.push(particle); scene.add(sprite); } particleSystemNeedsUpdate = true; }
+        function spawnParticles(config) { /* ... Same logic ... */ if (!particleTexture || isMuted) return; const defaultConf = { count: 10, position: new THREE.Vector3(0,0,1), color: new THREE.Color(0xffffff), size: 0.15, velocityRange: 1.5, type: 'sparkle', lifespan: PARTICLE_LIFESPAN, gravity: 2.5 }; const finalConf = { ...defaultConf, ...config }; for (let i = 0; i < finalConf.count; i++) { const material = new THREE.SpriteMaterial({ map: particleTexture, color: finalConf.color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, }); const sprite = new THREE.Sprite(material); sprite.position.copy(finalConf.position); sprite.position.x += (Math.random() - 0.5) * 0.15; sprite.position.y += (Math.random() - 0.5) * 0.15; sprite.position.z += (Math.random() - 0.5) * 0.05; sprite.scale.set(finalConf.size, finalConf.size, 1); const baseVelocityY = finalConf.velocityRange * 0.5; const particle = { mesh: sprite, velocity: new THREE.Vector3( (Math.random() - 0.5) * finalConf.velocityRange, (Math.random() - 0.5) * finalConf.velocityRange + baseVelocityY, (Math.random() - 0.5) * finalConf.velocityRange * 0.1 ), life: finalConf.lifespan, initialLife: finalConf.lifespan, type: finalConf.type, gravity: finalConf.gravity }; particles.push(particle); scene.add(sprite); } particleSystemNeedsUpdate = true; }
         function updateParticleSystem(delta) { /* ... Same logic ... */ if (!particleSystemNeedsUpdate && particles.length === 0) return; let needsUpdateNextFrame = false; for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.life -= delta; if (p.life <= 0) { scene.remove(p.mesh); p.mesh.material.dispose(); particles.splice(i, 1); } else { needsUpdateNextFrame = true; p.mesh.position.addScaledVector(p.velocity, delta); p.velocity.y -= p.gravity * delta; const lifePercent = p.life / p.initialLife; p.mesh.material.opacity = Math.max(0, lifePercent * 1.2); } } particleSystemNeedsUpdate = needsUpdateNextFrame; }
 
         // --- Flying Text System ---
-        function launchFeedbackText(text, startPosition) {
-            if (!assetsLoaded || isMuted) return;
+        function launchFeedbackText(text, startPosition) { /* ... Same logic ... */ if (!assetsLoaded || isMuted) return; const texture = createFlyingTextTexture(text); const aspect = texture.image.width / texture.image.height; const textHeight = 1.0; const textWidth = textHeight * aspect; const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide }); const geometry = new THREE.PlaneGeometry(textWidth, textHeight); const textMesh = new THREE.Mesh(geometry, material); textMesh.position.copy(startPosition); textMesh.position.z += 0.5; const velocity = new THREE.Vector3( (Math.random() - 0.5) * 2.0, FLYING_TEXT_SPEED * 0.8, 0 ).normalize().multiplyScalar(FLYING_TEXT_SPEED); const textRocket = { mesh: textMesh, material: material, geometry: geometry, velocity: velocity, life: FLYING_TEXT_LIFESPAN, elapsed: 0, lastParticleSpawn: 0, trailParticles: [] }; flyingTexts.push(textRocket); scene.add(textMesh); }
+        function updateFlyingTexts(delta) { /* ... Same logic ... */ if (flyingTexts.length === 0) return; for (let i = flyingTexts.length - 1; i >= 0; i--) { const rocket = flyingTexts[i]; rocket.elapsed += delta; rocket.life -= delta; if (rocket.life <= 0) { scene.remove(rocket.mesh); rocket.material.map.dispose(); rocket.material.dispose(); rocket.geometry.dispose(); rocket.trailParticles.forEach(p => { if (p && p.mesh) { scene.remove(p.mesh); if (p.mesh.material) p.mesh.material.dispose(); } }); flyingTexts.splice(i, 1); continue; } rocket.mesh.position.addScaledVector(rocket.velocity, delta); rocket.velocity.y -= 0.5 * delta; const angle = Math.atan2(rocket.velocity.y, rocket.velocity.x) - Math.PI / 2; rocket.mesh.rotation.z = angle; const lifePercent = rocket.life / FLYING_TEXT_LIFESPAN; rocket.material.opacity = Math.min(1.0, lifePercent * 2); rocket.lastParticleSpawn += delta; if (rocket.lastParticleSpawn >= FLYING_TEXT_PARTICLE_RATE) { rocket.lastParticleSpawn = 0; const backward = rocket.velocity.clone().normalize().negate(); const spawnPos = rocket.mesh.position.clone().addScaledVector(backward, 0.5); for (let j = 0; j < FLYING_TEXT_PARTICLE_COUNT; j++) { const trailParticleMaterial = new THREE.SpriteMaterial({ map: particleTexture, color: new THREE.Color(0xffaa33), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, }); const sprite = new THREE.Sprite(trailParticleMaterial); sprite.position.copy(spawnPos); sprite.position.x += (Math.random() - 0.5) * 0.1; sprite.position.y += (Math.random() - 0.5) * 0.1; sprite.scale.set(0.08, 0.08, 1); const trailParticle = { mesh: sprite, velocity: backward.clone().multiplyScalar(0.5 + Math.random() * 0.5), life: 0.3 + Math.random() * 0.2, initialLife: 0.5, gravity: 0.1 }; particles.push(trailParticle); scene.add(sprite); rocket.trailParticles.push(trailParticle); } particleSystemNeedsUpdate = true; } } }
 
-            const texture = createFlyingTextTexture(text);
-            const aspect = texture.image.width / texture.image.height;
-            const textHeight = 1.0; // Base size in world units
-            const textWidth = textHeight * aspect;
+        // --- Standard Animation System ---
+        function startAnimation(targetObject, type, duration = 0.3) { /* ... Same logic ... */ activeAnimations = activeAnimations.filter(anim => !(anim.target === targetObject && anim.type === type)); const animation = { target: targetObject, type: type, duration: duration, elapsed: 0, originalScale: targetObject.userData.originalScale ? targetObject.userData.originalScale.clone() : targetObject.scale.clone(), originalPosition: targetObject.position.clone(), originalColor: targetObject.material.color ? targetObject.material.color.clone() : null, shadowMesh: targetObject.userData.shadowMesh, shadowOriginalPosition: targetObject.userData.shadowMesh ? targetObject.userData.shadowMesh.position.clone() : null }; if (!targetObject.userData.originalScale) { targetObject.userData.originalScale = targetObject.scale.clone(); } if (type === 'glow' && targetObject.material && !targetObject.material.color) { console.warn("Cannot apply glow: Material missing color.", targetObject.userData.name); return; } activeAnimations.push(animation); }
+        function updateAnimations(delta) {
+            for (let i = activeAnimations.length - 1; i >= 0; i--) {
+                const anim = activeAnimations[i];
+                anim.elapsed += delta;
+                let progress = Math.min(1, anim.elapsed / anim.duration);
 
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                transparent: true,
-                depthWrite: false, // Render on top
-                side: THREE.DoubleSide // Render both sides
-            });
-            const geometry = new THREE.PlaneGeometry(textWidth, textHeight);
-            const textMesh = new THREE.Mesh(geometry, material);
-
-            textMesh.position.copy(startPosition);
-            textMesh.position.z += 0.5; // Ensure it's in front
-
-            // Calculate trajectory (e.g., upwards and slightly random horizontal)
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 2.0, // Random horizontal component
-                FLYING_TEXT_SPEED * 0.8,    // Primarily upward
-                0 // No Z movement
-            ).normalize().multiplyScalar(FLYING_TEXT_SPEED);
-
-            const textRocket = {
-                mesh: textMesh,
-                material: material, // Store material for opacity fade
-                geometry: geometry, // Store geometry for disposal
-                velocity: velocity,
-                life: FLYING_TEXT_LIFESPAN,
-                elapsed: 0,
-                lastParticleSpawn: 0,
-                trailParticles: [] // Keep track of particles associated with this text
-            };
-
-            flyingTexts.push(textRocket);
-            scene.add(textMesh);
-        }
-
-        function updateFlyingTexts(delta) {
-            if (flyingTexts.length === 0) return;
-
-            for (let i = flyingTexts.length - 1; i >= 0; i--) {
-                const rocket = flyingTexts[i];
-                rocket.elapsed += delta;
-                rocket.life -= delta;
-
-                if (rocket.life <= 0) {
-                    // --- Cleanup ---
-                    scene.remove(rocket.mesh);
-                    rocket.material.map.dispose(); // Dispose the canvas texture
-                    rocket.material.dispose();
-                    rocket.geometry.dispose();
-                    // Cleanup associated trail particles
-                    rocket.trailParticles.forEach(p => {
-                         if (p && p.mesh) { // Ensure particle still exists
-                            scene.remove(p.mesh);
-                            if (p.mesh.material) p.mesh.material.dispose();
-                         }
-                    });
-                    flyingTexts.splice(i, 1);
-                    continue; // Move to the next rocket
+                if (anim.type === 'pulse') {
+                    const scaleFactor = 1 + Math.sin(Math.PI * progress) * 0.2;
+                    anim.target.scale.copy(anim.originalScale).multiplyScalar(scaleFactor);
+                    // Also scale shadow if it exists
+                    if (anim.shadowMesh) {
+                        anim.shadowMesh.scale.copy(anim.originalScale).multiplyScalar(scaleFactor);
+                    }
+                } else if (anim.type === 'shake') {
+                    const shakeIntensity = (1 - progress) * 3;
+                    const offsetX = (Math.random() - 0.5) * 0.1 * shakeIntensity;
+                    const offsetY = (Math.random() - 0.5) * 0.1 * shakeIntensity;
+                    anim.target.position.x = anim.originalPosition.x + offsetX;
+                    anim.target.position.y = anim.originalPosition.y + offsetY;
+                    // Also shake shadow if it exists
+                    if (anim.shadowMesh && anim.shadowOriginalPosition) {
+                        anim.shadowMesh.position.x = anim.shadowOriginalPosition.x + offsetX;
+                        anim.shadowMesh.position.y = anim.shadowOriginalPosition.y + offsetY;
+                    }
+                } else if (anim.type === 'glow' && anim.originalColor) {
+                    const glowColor = new THREE.Color(0x00ff00);
+                    const glowAmount = Math.sin(Math.PI * progress);
+                    if (anim.target.material.color) {
+                        anim.target.material.color.lerpColors(anim.originalColor, glowColor, glowAmount);
+                    }
+                    // Glow doesn't typically affect shadow color
                 }
 
-                // --- Movement ---
-                rocket.mesh.position.addScaledVector(rocket.velocity, delta);
-                // Optional: Add slight gravity pull downwards
-                rocket.velocity.y -= 0.5 * delta;
-
-                // --- Rotation --- (Point towards velocity direction - simplified 2D)
-                const angle = Math.atan2(rocket.velocity.y, rocket.velocity.x) - Math.PI / 2;
-                rocket.mesh.rotation.z = angle;
-
-                // --- Fading ---
-                const lifePercent = rocket.life / FLYING_TEXT_LIFESPAN;
-                rocket.material.opacity = Math.min(1.0, lifePercent * 2); // Fade out in the last half
-
-                // --- Particle Trail ---
-                rocket.lastParticleSpawn += delta;
-                if (rocket.lastParticleSpawn >= FLYING_TEXT_PARTICLE_RATE) {
-                    rocket.lastParticleSpawn = 0;
-
-                    // Calculate spawn position behind the text
-                    const backward = rocket.velocity.clone().normalize().negate();
-                    const spawnPos = rocket.mesh.position.clone().addScaledVector(backward, 0.5); // Spawn 0.5 units behind
-
-                    for (let j = 0; j < FLYING_TEXT_PARTICLE_COUNT; j++) {
-                        const trailParticleMaterial = new THREE.SpriteMaterial({
-                             map: particleTexture,
-                             color: new THREE.Color(0xffaa33), // Orangey trail
-                             transparent: true,
-                             blending: THREE.AdditiveBlending,
-                             depthWrite: false,
-                        });
-                        const sprite = new THREE.Sprite(trailParticleMaterial);
-                        sprite.position.copy(spawnPos);
-                         // Add slight random offset to spawn position
-                         sprite.position.x += (Math.random() - 0.5) * 0.1;
-                         sprite.position.y += (Math.random() - 0.5) * 0.1;
-                         sprite.scale.set(0.08, 0.08, 1); // Smaller trail particles
-
-                         const trailParticle = {
-                             mesh: sprite,
-                             velocity: backward.clone().multiplyScalar(0.5 + Math.random() * 0.5), // Move slowly backward
-                             life: 0.3 + Math.random() * 0.2, // Short lifespan
-                             initialLife: 0.5, // Store initial for fading calculation
-                             gravity: 0.1 // Very low gravity for trail
-                         };
-                         particles.push(trailParticle); // Add to main particle array for update
-                         scene.add(sprite);
-                         rocket.trailParticles.push(trailParticle); // Track for cleanup with rocket
+                if (progress >= 1) {
+                    // Reset state
+                    if (anim.type === 'pulse' || anim.type === 'shake') {
+                        if (anim.target.userData.originalScale) anim.target.scale.copy(anim.originalScale);
+                        anim.target.position.copy(anim.originalPosition);
+                        if (anim.shadowMesh) {
+                            anim.shadowMesh.scale.copy(anim.originalScale); // Reset shadow scale
+                            if (anim.shadowOriginalPosition) anim.shadowMesh.position.copy(anim.shadowOriginalPosition); // Reset shadow position
+                        }
+                    } else if (anim.type === 'glow' && anim.originalColor && anim.target.material.color) {
+                        anim.target.material.color.copy(anim.originalColor);
                     }
-                    particleSystemNeedsUpdate = true; // Signal main particle system
+                    activeAnimations.splice(i, 1);
                 }
             }
         }
-
-
-        // --- Standard Animation System (Pulse/Shake/Glow) ---
-        function startAnimation(targetObject, type, duration = 0.3) { /* ... Same logic ... */ activeAnimations = activeAnimations.filter(anim => !(anim.target === targetObject && anim.type === type)); const animation = { target: targetObject, type: type, duration: duration, elapsed: 0, originalScale: targetObject.userData.originalScale ? targetObject.userData.originalScale.clone() : targetObject.scale.clone(), originalPosition: targetObject.position.clone(), originalColor: targetObject.material.color ? targetObject.material.color.clone() : null }; if (!targetObject.userData.originalScale) { targetObject.userData.originalScale = targetObject.scale.clone(); } if (type === 'glow' && targetObject.material && !targetObject.material.color) { console.warn("Cannot apply glow: Material missing color.", targetObject.userData.name); return; } activeAnimations.push(animation); }
-        function updateAnimations(delta) { /* ... Same logic ... */ for (let i = activeAnimations.length - 1; i >= 0; i--) { const anim = activeAnimations[i]; anim.elapsed += delta; let progress = Math.min(1, anim.elapsed / anim.duration); if (anim.type === 'pulse') { const scaleFactor = 1 + Math.sin(Math.PI * progress) * 0.2; anim.target.scale.copy(anim.originalScale).multiplyScalar(scaleFactor); } else if (anim.type === 'shake') { const shakeIntensity = (1 - progress) * 3; anim.target.position.x = anim.originalPosition.x + (Math.random() - 0.5) * 0.1 * shakeIntensity; anim.target.position.y = anim.originalPosition.y + (Math.random() - 0.5) * 0.1 * shakeIntensity; } else if (anim.type === 'glow' && anim.originalColor) { const glowColor = new THREE.Color(0x00ff00); const glowAmount = Math.sin(Math.PI * progress); if (anim.target.material.color) { anim.target.material.color.lerpColors(anim.originalColor, glowColor, glowAmount); } } if (progress >= 1) { if (anim.type === 'pulse' || anim.type === 'shake') { if(anim.target.userData.originalScale) anim.target.scale.copy(anim.originalScale); anim.target.position.copy(anim.originalPosition); } else if (anim.type === 'glow' && anim.originalColor && anim.target.material.color) { anim.target.material.color.copy(anim.originalColor); } activeAnimations.splice(i, 1); } } }
 
         // --- Screen Effects ---
         function triggerScreenFlash() { /* ... Same logic ... */ const flashElement = document.getElementById('screen-flash'); flashElement.classList.add('active'); setTimeout(() => { flashElement.classList.remove('active'); }, 150); }
@@ -363,136 +188,193 @@
 
         // --- Game Loop ---
         function animate() {
-            requestAnimationFrame(animate);
-            if (!assetsLoaded) return;
+             requestAnimationFrame(animate);
+             if (!assetsLoaded) return;
+             const delta = clock.getDelta();
 
-            const delta = clock.getDelta();
+             // Update Systems
+             updateAnimations(delta);
+             updateFlyingTexts(delta);
+             updateParticleSystem(delta);
+             updateCamera(delta);
 
-            // Update Systems
-            updateAnimations(delta); // Object pulse/shake/glow
-            updateFlyingTexts(delta); // Text rockets
-            updateParticleSystem(delta); // Standard particles (clicks, success, text trails)
-            updateCamera(delta);
+             // Bobbing & Hover (after updates)
+             const bobbingSpeed = 2; const bobbingAmount = 0.05;
+             gameObjects.forEach(obj => {
+                 // Don't bob if shaking
+                 if (obj.userData.isSprite && obj.userData.type === 'character' && !activeAnimations.some(a => a.target === obj && a.type ==='shake')) {
+                     if (obj.userData.originalY === undefined) obj.userData.originalY = obj.position.y;
+                     const bobOffset = Math.sin(clock.elapsedTime * bobbingSpeed + (obj.id || 0)) * bobbingAmount;
+                     obj.position.y = obj.userData.originalY + bobOffset;
+                     // Also bob shadow
+                     if (obj.userData.shadowMesh && obj.userData.shadowOriginalY !== undefined) {
+                        obj.userData.shadowMesh.position.y = obj.userData.shadowOriginalY + bobOffset;
+                     }
+                 }
+                 // Don't scale if pulsing
+                 if (obj.userData.isSprite && obj.userData.originalScale && !activeAnimations.some(a => a.target === obj && a.type ==='pulse')) {
+                     const targetScaleFactor = (obj === hoveredObject) ? 1.1 : 1.0;
+                     const targetScaleVec = obj.userData.originalScale.clone().multiplyScalar(targetScaleFactor);
+                     obj.scale.lerp(targetScaleVec, 0.15);
+                     // Also scale shadow on hover
+                     if(obj.userData.shadowMesh) {
+                        obj.userData.shadowMesh.scale.lerp(targetScaleVec, 0.15);
+                     }
+                 }
+             });
 
-            // Bobbing & Hover (after other updates)
-            const bobbingSpeed = 2; const bobbingAmount = 0.05;
-            gameObjects.forEach(obj => {
-                 if (obj.userData.isSprite && obj.userData.type === 'character' && !activeAnimations.some(a => a.target === obj && a.type ==='shake')) { /* ... bobbing ... */ if (obj.userData.originalY === undefined) obj.userData.originalY = obj.position.y; obj.position.y = obj.userData.originalY + Math.sin(clock.elapsedTime * bobbingSpeed + (obj.id || 0)) * bobbingAmount; }
-                 if (obj.userData.isSprite && obj.userData.originalScale && !activeAnimations.some(a => a.target === obj && a.type ==='pulse')) { /* ... hover scale ... */ const targetScaleFactor = (obj === hoveredObject) ? 1.1 : 1.0; const targetScaleVec = obj.userData.originalScale.clone().multiplyScalar(targetScaleFactor); obj.scale.lerp(targetScaleVec, 0.15); }
-            });
-
-            renderer.render(scene, camera);
-        }
+             renderer.render(scene, camera);
+         }
 
 
         // --- Scene/Location Management ---
-        function clearScene() { /* ... Same robust clearScene logic, now also clears flyingTexts ... */ console.log("Clearing scene..."); gameObjects.forEach(obj => { if (obj.geometry) obj.geometry.dispose(); if (obj.material) { if (obj.material.map && !Object.values(textures).includes(obj.material.map) && obj.material.map !== particleTexture) { obj.material.map.dispose(); } obj.material.dispose(); } if (scene) { scene.remove(obj); } }); gameObjects = []; hoveredObject = null; activeAnimations = []; /* Clear object animations */ flyingTexts.forEach(ft => { if(ft.mesh) scene.remove(ft.mesh); if(ft.material && ft.material.map) ft.material.map.dispose(); if(ft.material) ft.material.dispose(); if(ft.geometry) ft.geometry.dispose(); ft.trailParticles.forEach(p => { if(p && p.mesh) scene.remove(p.mesh); if(p && p.mesh && p.mesh.material) p.mesh.material.dispose(); }); }); flyingTexts = []; /* Clear text rockets */ particles.forEach(p => { if (p.mesh) { if (scene) scene.remove(p.mesh); if (p.mesh.material) p.mesh.material.dispose(); } }); particles = []; particleSystemNeedsUpdate = false; if (scene) { scene.background = null; console.log("Scene cleared."); } }
-        function loadLocation(locationId) { /* ... Same loadLocation logic ... */ if (!scene || !assetsLoaded) { console.warn(`loadLocation called prematurely for ${locationId}. Aborting.`); return; } console.log(`Loading location: ${locationId}`); clearScene(); setCameraZoom(1, true); currentLocation = locationId; const data = locationData[locationId]; if (!data) { console.error(`Location data not found for: ${locationId}`); return; } const bgAssetKey = data.backgroundAsset; const bgTexture = textures[bgAssetKey]; if (bgTexture) { scene.background = bgTexture; } else { scene.background = new THREE.Color(0x000000); } document.getElementById('location-info').innerText = `Location: ${locationId.replace(/_/g, ' ').toUpperCase()}`; if (data.objects) { data.objects.forEach(objData => { const assetKey = objData.pixelArt; const texture = textures[assetKey]; if (!texture) { console.warn(`Object texture not found: ${assetKey} for ${objData.name}`); return; } const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.1 }); const geometry = new THREE.PlaneGeometry(1, 1); const mesh = new THREE.Mesh(geometry, material); mesh.position.set(objData.x || 0, objData.y || 0, objData.z || 0); const desiredScale = objData.scale || 1; const imageAspect = (texture.image && texture.image.height > 0) ? (texture.image.width / texture.image.height) : 1; mesh.scale.set(imageAspect * desiredScale, desiredScale, 1); mesh.userData = { ...objData, isClickable: true, isSprite: true, originalScale: mesh.scale.clone(), originalY: mesh.position.y }; scene.add(mesh); gameObjects.push(mesh); if (objData.type === 'character' || objData.type === 'target') { const backdropRadius = Math.max(mesh.scale.x, mesh.scale.y) * 0.5 * 1.15; const backdropGeo = new THREE.CircleGeometry(backdropRadius, 32); const backdropMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: BACKDROP_OPACITY, side: THREE.DoubleSide }); const backdropCircle = new THREE.Mesh(backdropGeo, backdropMat); backdropCircle.position.copy(mesh.position); backdropCircle.position.z = mesh.position.z - 0.01; backdropCircle.userData = { isBackdrop: true, parentSprite: mesh }; scene.add(backdropCircle); gameObjects.push(backdropCircle); } }); console.log(`Loaded ${data.objects.length} objects for ${locationId}.`); } else { console.log(`No objects defined for ${locationId}.`); } console.log(`Location ${locationId} loaded successfully.`); }
+        function clearScene() {
+             console.log("Clearing scene...");
+             gameObjects.forEach(obj => {
+                 // Dispose geometry only if not shared or if it's the last reference
+                 // Simple approach: dispose if it exists
+                 if (obj.geometry) obj.geometry.dispose();
+
+                 // Dispose material and textures conditionally
+                 if (obj.material) {
+                     if (obj.material.map && !Object.values(textures).includes(obj.material.map) && obj.material.map !== particleTexture) {
+                         // Don't dispose main cached textures or particle texture
+                          if (!flyingTexts.some(ft => ft.material && ft.material.map === obj.material.map)) { // Check if it's a flying text texture
+                              console.log("Disposing map texture for:", obj.userData.name || obj.userData.type || "unknown object");
+                              obj.material.map.dispose();
+                          }
+                     }
+                      // Dispose the material itself (shadows have unique materials)
+                     obj.material.dispose();
+                 }
+                 if (scene) { scene.remove(obj); }
+             });
+             gameObjects = []; hoveredObject = null; activeAnimations = [];
+
+             // Clear flying texts and their resources
+              flyingTexts.forEach(ft => {
+                  if(ft.mesh) scene.remove(ft.mesh);
+                  if(ft.material && ft.material.map) ft.material.map.dispose(); // Dispose canvas texture
+                  if(ft.material) ft.material.dispose();
+                  if(ft.geometry) ft.geometry.dispose();
+                  // Trail particles are in the main 'particles' array, handled below
+              });
+              flyingTexts = [];
+
+              // Clear standard particles
+              particles.forEach(p => { if (p.mesh) { if (scene) scene.remove(p.mesh); if (p.mesh.material) p.mesh.material.dispose(); } });
+              particles = [];
+              particleSystemNeedsUpdate = false;
+
+              if (scene) { scene.background = null; console.log("Scene cleared."); }
+        }
+
+        function loadLocation(locationId) {
+            if (!scene || !assetsLoaded) { /* ... guard ... */ return; }
+            console.log(`Loading location: ${locationId}`);
+            clearScene();
+            setCameraZoom(1, true);
+            currentLocation = locationId;
+            const data = locationData[locationId];
+            if (!data) { /* ... error ... */ return; }
+
+            const bgAssetKey = data.backgroundAsset;
+            const bgTexture = textures[bgAssetKey];
+            if (bgTexture) { scene.background = bgTexture; } else { scene.background = new THREE.Color(0x000000); }
+            document.getElementById('location-info').innerText = `Location: ${locationId.replace(/_/g, ' ').toUpperCase()}`;
+
+            if (data.objects) {
+                data.objects.forEach(objData => {
+                    const assetKey = objData.pixelArt;
+                    const texture = textures[assetKey];
+                    if (!texture) { /* ... warn skip ... */ return; }
+
+                    // --- Create Main Sprite ---
+                    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.1 });
+                    const geometry = new THREE.PlaneGeometry(1, 1); // Shared geometry
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.set(objData.x || 0, objData.y || 0, objData.z || 0);
+                    const desiredScale = objData.scale || 1;
+                    const imageAspect = (texture.image && texture.image.height > 0) ? (texture.image.width / texture.image.height) : 1;
+                    mesh.scale.set(imageAspect * desiredScale, desiredScale, 1);
+                    mesh.userData = { ...objData, isClickable: true, isSprite: true, originalScale: mesh.scale.clone(), originalY: mesh.position.y, shadowMesh: null }; // Add shadowMesh ref
+                    scene.add(mesh);
+                    gameObjects.push(mesh);
+
+
+                    // --- Create Drop Shadow (for characters and targets) ---
+                    let shadowMesh = null;
+                    if (objData.type === 'character' || objData.type === 'target') {
+                        const shadowMaterial = new THREE.MeshBasicMaterial({
+                            map: texture, // Use same texture map
+                            color: SHADOW_COLOR,
+                            transparent: true,
+                            opacity: SHADOW_OPACITY,
+                            alphaTest: 0.01 // Render faint parts of alpha for shadow shape
+                        });
+                        shadowMesh = new THREE.Mesh(geometry, shadowMaterial); // Use SAME geometry
+                        shadowMesh.scale.copy(mesh.scale); // Match scale
+                        shadowMesh.position.copy(mesh.position);
+                        shadowMesh.position.x += SHADOW_OFFSET_X;
+                        shadowMesh.position.y += SHADOW_OFFSET_Y;
+                        shadowMesh.position.z -= 0.005; // Position slightly behind main sprite
+
+                        shadowMesh.userData = { isShadow: true, parentSprite: mesh }; // Mark as shadow
+                        mesh.userData.shadowMesh = shadowMesh; // Link sprite to shadow
+                        mesh.userData.shadowOriginalY = shadowMesh.position.y; // Store for bobbing sync
+
+                        scene.add(shadowMesh);
+                        gameObjects.push(shadowMesh); // Add shadow to cleanup list
+                    }
+
+                    // --- Create Backdrop Circle (behind sprite AND shadow) ---
+                    if (objData.type === 'character' || objData.type === 'target') {
+                        const backdropRadius = Math.max(mesh.scale.x, mesh.scale.y) * 0.5 * 1.15;
+                        const backdropGeo = new THREE.CircleGeometry(backdropRadius, 32);
+                        const backdropMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: BACKDROP_OPACITY, side: THREE.DoubleSide });
+                        const backdropCircle = new THREE.Mesh(backdropGeo, backdropMat);
+                        backdropCircle.position.copy(mesh.position);
+                        backdropCircle.position.z = (shadowMesh ? shadowMesh.position.z : mesh.position.z) - 0.005; // Position behind shadow (or sprite if no shadow)
+                        backdropCircle.userData = { isBackdrop: true, parentSprite: mesh };
+                        scene.add(backdropCircle);
+                        gameObjects.push(backdropCircle);
+                    }
+                });
+                console.log(`Loaded objects for ${locationId}.`);
+            } else { console.log(`No objects defined for ${locationId}.`); }
+            console.log(`Location ${locationId} loaded successfully.`);
+        }
         function changeLocation() { /* ... Same logic ... */ if (!assetsLoaded) return; playSound('navigate'); closeDialogue(); currentLocationIndex = (currentLocationIndex + 1) % availableLocations.length; loadLocation(availableLocations[currentLocationIndex]); }
 
 
-        // --- Interaction ---
+        // --- Interaction --- (No changes needed here, click/hover handled)
         function updateMousePosition(event) { /* ... Same logic ... */ const rect = renderer.domElement.getBoundingClientRect(); mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1; }
         function onMouseMove(event) { /* ... Same logic ... */ if (!assetsLoaded) return; updateMousePosition(event); raycaster.setFromCamera(mouse, camera); const clickableObjects = gameObjects.filter(obj => obj.userData.isSprite && obj.userData.isClickable); const intersects = raycaster.intersectObjects(clickableObjects); let newHoveredObject = null; if (intersects.length > 0) { newHoveredObject = intersects[0].object; renderer.domElement.style.cursor = 'pointer'; showTooltip(newHoveredObject.userData.name || 'Interactable', event.clientX, event.clientY); } else { renderer.domElement.style.cursor = 'default'; hideTooltip(); } if (newHoveredObject !== hoveredObject) { hoveredObject = newHoveredObject; } }
         function onMouseLeave(event) { /* ... Same logic ... */ hoveredObject = null; renderer.domElement.style.cursor = 'default'; hideTooltip(); }
         function onMouseClick(event) { /* ... Same logic - uses standard particles for clicks ... */ if (!assetsLoaded) return; updateMousePosition(event); raycaster.setFromCamera(mouse, camera); const clickableObjects = gameObjects.filter(obj => obj.userData.isSprite && obj.userData.isClickable); const intersects = raycaster.intersectObjects(clickableObjects); if (intersects.length > 0) { const clickedObject = intersects[0].object; handleObjectClick(clickedObject); const clickPosition = intersects[0].point; spawnParticles({ position: clickPosition, count: PARTICLE_COUNT_CLICK, color: new THREE.Color(0xFFFFCC), velocityRange: 1.2, size: 0.12, type: 'click', lifespan: 0.4, gravity: 1.5 }); startAnimation(clickedObject, 'pulse', 0.3); setCameraZoom(1.1); setTimeout(() => setCameraZoom(1.0), 400); } else { setCameraZoom(1.0); } }
         function handleObjectClick(object) { /* ... Same logic ... */ playSound('click'); console.log("Clicked on:", object.userData.name || 'Unnamed Object'); const data = object.userData; if (data.dialogue) { showDialogue(data.dialogue); } if (data.type === 'target' && currentCase && !currentCase.solved && data.caseId === currentCase.id) { gameObjects.forEach(obj => { if(obj.userData.isSprite && obj.userData.type === 'target' && obj.userData.caseId === currentCase.id) obj.userData.wasClicked = false; }); object.userData.wasClicked = true; console.log(`Target ${data.name} selected for measurement for Case ${currentCase.id}`); addNotebookEntry(`Selected ${data.name} for measurement.`); } }
 
-        // --- Tooltip & Dialogue ---
-        function showTooltip(text, x, y) { /* ... Same logic ... */ tooltipElement.innerText = text; tooltipElement.style.display = 'block'; const offsetX = 15; const offsetY = 10; let finalX = x + offsetX; let finalY = y + offsetY; if (finalX + tooltipElement.offsetWidth > window.innerWidth) { finalX = x - tooltipElement.offsetWidth - 5; } if (finalY + tooltipElement.offsetHeight > window.innerHeight) { finalY = y - tooltipElement.offsetHeight - 5; } if (finalX < 0) { finalX = 5; } if (finalY < 0) { finalY = 5; } tooltipElement.style.left = `${finalX}px`; tooltipElement.style.top = `${finalY}px`; }
-        function hideTooltip() { /* ... Same logic ... */ tooltipElement.style.display = 'none'; }
-        function showDialogue(text) { /* ... Same logic ... */ document.getElementById('dialogue-text').innerText = text; document.getElementById('dialogue-box').style.display = 'block'; playSound('dialogue'); }
-        function closeDialogue() { /* ... Same logic ... */ document.getElementById('dialogue-box').style.display = 'none'; }
+        // --- Tooltip & Dialogue --- (No changes needed)
+        function showTooltip(text, x, y) { /* ... */ tooltipElement.innerText = text; tooltipElement.style.display = 'block'; const offsetX = 15; const offsetY = 10; let finalX = x + offsetX; let finalY = y + offsetY; if (finalX + tooltipElement.offsetWidth > window.innerWidth) { finalX = x - tooltipElement.offsetWidth - 5; } if (finalY + tooltipElement.offsetHeight > window.innerHeight) { finalY = y - tooltipElement.offsetHeight - 5; } if (finalX < 0) { finalX = 5; } if (finalY < 0) { finalY = 5; } tooltipElement.style.left = `${finalX}px`; tooltipElement.style.top = `${finalY}px`; }
+        function hideTooltip() { /* ... */ tooltipElement.style.display = 'none'; }
+        function showDialogue(text) { /* ... */ document.getElementById('dialogue-text').innerText = text; document.getElementById('dialogue-box').style.display = 'block'; playSound('dialogue'); }
+        function closeDialogue() { /* ... */ document.getElementById('dialogue-box').style.display = 'none'; }
 
-        // --- Gameplay Mechanics ---
-        function startCase(caseData) { /* ... Same logic ... */ if (!caseData) return; gameObjects.forEach(obj => { if (obj.userData.type === 'target') obj.userData.wasClicked = false; }); currentCase = { ...caseData, cluesFound: [] }; console.log("Starting Case:", currentCase.title); updateCaseDisplay(); addNotebookEntry(`--- New Case Received ---`); addNotebookEntry(`Case File: ${currentCase.title}`); addNotebookEntry(`Objective: ${currentCase.objective}`); addNotebookEntry(`Report to: ${currentCase.location.replace(/_/g, ' ')}`); playSound('new_case'); showDialogue(`New Case: ${currentCase.title}\n${currentCase.description}`); if (currentLocation !== currentCase.location) { addNotebookEntry(`Hint: Use 'Change Location' button.`); } }
-        function addNotebookEntry(entry) { /* ... Same logic ... */ const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); notebookContent += `\n[${timestamp}] ${entry}`; updateNotebookDisplay(); }
-        function updateNotebookDisplay() { /* ... Same logic ... */ const notebookDiv = document.getElementById('notebook'); notebookDiv.innerText = notebookContent; notebookDiv.scrollTop = notebookDiv.scrollHeight; }
-        function updateCaseDisplay() { /* ... Same logic ... */ const titleSpan = document.getElementById('case-title'); const infoDiv = document.getElementById('case-info'); if (currentCase) { titleSpan.innerText = currentCase.title + (currentCase.solved ? " (SOLVED)" : ""); infoDiv.innerText = `Objective: ${currentCase.objective}\nLocation: ${currentCase.location.replace(/_/g, ' ')}\n\n${currentCase.description}`; infoDiv.scrollTop = 0; } else { titleSpan.innerText = "None"; infoDiv.innerText = "No active case. Explore or await assignment."; } }
-        function useThermometer(type) {
-             playSound('use_tool');
-             if (!currentCase || currentCase.solved) { /* ... */ return; }
-             if (currentLocation !== currentCase.location) { /* ... */ return; }
-             const targetObject = gameObjects.find(obj => obj.userData.isSprite && obj.userData.type === 'target' && obj.userData.caseId === currentCase.id && obj.userData.wasClicked === true );
-             if (!targetObject) { /* ... */ return; }
+        // --- Gameplay Mechanics --- (No changes needed, text rocket launched from here)
+        function startCase(caseData) { /* ... */ if (!caseData) return; gameObjects.forEach(obj => { if (obj.userData.type === 'target') obj.userData.wasClicked = false; }); currentCase = { ...caseData, cluesFound: [] }; console.log("Starting Case:", currentCase.title); updateCaseDisplay(); addNotebookEntry(`--- New Case Received ---`); addNotebookEntry(`Case File: ${currentCase.title}`); addNotebookEntry(`Objective: ${currentCase.objective}`); addNotebookEntry(`Report to: ${currentCase.location.replace(/_/g, ' ')}`); playSound('new_case'); showDialogue(`New Case: ${currentCase.title}\n${currentCase.description}`); if (currentLocation !== currentCase.location) { addNotebookEntry(`Hint: Use 'Change Location' button.`); } }
+        function addNotebookEntry(entry) { /* ... */ const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); notebookContent += `\n[${timestamp}] ${entry}`; updateNotebookDisplay(); }
+        function updateNotebookDisplay() { /* ... */ const notebookDiv = document.getElementById('notebook'); notebookDiv.innerText = notebookContent; notebookDiv.scrollTop = notebookDiv.scrollHeight; }
+        function updateCaseDisplay() { /* ... */ const titleSpan = document.getElementById('case-title'); const infoDiv = document.getElementById('case-info'); if (currentCase) { titleSpan.innerText = currentCase.title + (currentCase.solved ? " (SOLVED)" : ""); infoDiv.innerText = `Objective: ${currentCase.objective}\nLocation: ${currentCase.location.replace(/_/g, ' ')}\n\n${currentCase.description}`; infoDiv.scrollTop = 0; } else { titleSpan.innerText = "None"; infoDiv.innerText = "No active case. Explore or await assignment."; } }
+        function useThermometer(type) { /* ... Same logic using launchFeedbackText for errors ... */ playSound('use_tool'); if (!currentCase || currentCase.solved) return; if (currentLocation !== currentCase.location) return; const targetObject = gameObjects.find(obj => obj.userData.isSprite && obj.userData.type === 'target' && obj.userData.caseId === currentCase.id && obj.userData.wasClicked === true ); if (!targetObject) return; targetObject.userData.wasClicked = false; const targetName = targetObject.userData.name; addNotebookEntry(`Attempting ${type} measurement on ${targetName}.`); const particlePos = targetObject.position.clone(); particlePos.z += 0.1; if (type === currentCase.requiredThermometer) { /* Success logic */ let measurementResult = "", clueFound = ""; if (currentCase.id === 1) { measurementResult = "Reads: 38.5°C (101.3°F)"; clueFound = 'child_temp_measured'; } else if (currentCase.id === 2) { measurementResult = "Reads: -5°C (23°F)"; clueFound = 'freezer_temp_measured'; } else { measurementResult = "Reads: [Simulated Reading]"; clueFound = `measurement_case_${currentCase.id}`; } showDialogue(`Using the ${type} thermometer on ${targetName}... ${measurementResult}`); addNotebookEntry(`Result: ${measurementResult}`); startAnimation(targetObject, 'glow', 0.5); if (clueFound && currentCase.cluesNeeded.includes(clueFound) && !currentCase.cluesFound.includes(clueFound)) { currentCase.cluesFound.push(clueFound); addNotebookEntry(`CLUE ACQUIRED: ${clueFound.replace(/_/g, ' ')} seems significant.`); playSound('success'); spawnParticles({ position: particlePos, count: PARTICLE_COUNT_SUCCESS, color: new THREE.Color(0xAAFFAA), velocityRange: 2.0, size: 0.2, type: 'success', lifespan: 0.8, gravity: 1.0 }); if (currentCase.cluesNeeded.every(clue => currentCase.cluesFound.includes(clue))) { addNotebookEntry("All necessary clues gathered!"); } } else { addNotebookEntry(`Measurement taken. Consistent reading.`); spawnParticles({ position: particlePos, count: PARTICLE_COUNT_CLICK, color: new THREE.Color(0xBBBBFF), velocityRange: 1.2, size: 0.1, type: 'tool_ok', lifespan: 0.5 }); } } else { /* Failure logic */ let reason = `The ${type} thermometer isn't suitable for measuring ${targetName}.`; if (type === 'clinical') reason = `A clinical thermometer is designed for body temperature, not this.`; if (type === 'lab') reason = `A lab thermometer is best for liquids or controlled environments. Try something else for ${targetName}.`; if (type === 'infrared') reason = `An infrared thermometer measures surface heat. Is that what's needed here?`; showDialogue(reason); addNotebookEntry(`Wrong Tool: Used ${type} on ${targetName}. Needed ${currentCase.requiredThermometer}.`); playSound('error'); startAnimation(targetObject, 'shake', 0.4); const randomErrorMsg = errorMessages[Math.floor(Math.random() * errorMessages.length)]; launchFeedbackText(randomErrorMsg, particlePos); } }
+        function solveCaseAttempt() { /* ... Same logic using launchFeedbackText for errors ... */ if (!currentCase || currentCase.solved) return; let allCluesFound = currentCase.cluesNeeded.every(clue => currentCase.cluesFound.includes(clue)); if (allCluesFound) { /* Success */ currentCase.solved = true; showDialogue(`CASE SOLVED: ${currentCase.title}!\n\nSummary: ${currentCase.successMessage}\n\nLesson Learned: ${currentCase.educationalNote}`); addNotebookEntry(`--- CASE STATUS: SOLVED ---`); updateCaseDisplay(); playSound('case_solved'); triggerScreenFlash(); const centerPos = new THREE.Vector3(0, 0, 1); spawnParticles({ position: centerPos, count: 40, color: new THREE.Color(0xFFFF00), velocityRange: 3.5, size: 0.3, type: 'case_solved', lifespan: 1.2, gravity: 0.5 }); const currentCaseId = currentCase.id; const nextCase = cases.find(c => c.id > currentCaseId && !c.solved); if (nextCase) { addNotebookEntry("Preparing for next assignment..."); setTimeout(() => { startCase(nextCase); }, 4500); } else { addNotebookEntry("--- ALL CASES CLOSED ---"); setTimeout(() => { showDialogue("CLASSIFIED! Excellent work, Detective! You've solved all available cases."); currentCase = null; updateCaseDisplay(); }, 4500); } } else { /* Failure */ let missingCluesCount = currentCase.cluesNeeded.length - currentCase.cluesFound.length; showDialogue(`Negative... Intel still incomplete for ${currentCase.title}. ${currentCase.failureMessage || `Missing ${missingCluesCount} piece(s) of evidence.`}`); addNotebookEntry(`Solve attempt failed: Missing ${missingCluesCount} clue(s) for ${currentCase.title}.`); playSound('error'); triggerScreenShake(); const randomErrorMsg = errorMessages[Math.floor(Math.random() * errorMessages.length)]; launchFeedbackText(randomErrorMsg, new THREE.Vector3(0, 0, 1)); } }
 
-             targetObject.userData.wasClicked = false;
-             const targetName = targetObject.userData.name;
-             addNotebookEntry(`Attempting ${type} measurement on ${targetName}.`);
-             const particlePos = targetObject.position.clone();
-             particlePos.z += 0.1; // Spawn slightly in front
-
-             if (type === currentCase.requiredThermometer) {
-                 // --- Success --- (Keeps standard particles and glow)
-                 let measurementResult = "", clueFound = "";
-                 /* ... get result/clue ... */ if (currentCase.id === 1) { measurementResult = "Reads: 38.5°C (101.3°F)"; clueFound = 'child_temp_measured'; } else if (currentCase.id === 2) { measurementResult = "Reads: -5°C (23°F)"; clueFound = 'freezer_temp_measured'; } else { measurementResult = "Reads: [Simulated Reading]"; clueFound = `measurement_case_${currentCase.id}`; }
-                 showDialogue(`Using the ${type} thermometer on ${targetName}... ${measurementResult}`);
-                 addNotebookEntry(`Result: ${measurementResult}`);
-                 startAnimation(targetObject, 'glow', 0.5);
-
-                 if (clueFound && currentCase.cluesNeeded.includes(clueFound) && !currentCase.cluesFound.includes(clueFound)) {
-                     currentCase.cluesFound.push(clueFound);
-                     addNotebookEntry(`CLUE ACQUIRED: ${clueFound.replace(/_/g, ' ')} seems significant.`);
-                     playSound('success');
-                     spawnParticles({ position: particlePos, count: PARTICLE_COUNT_SUCCESS, color: new THREE.Color(0xAAFFAA), velocityRange: 2.0, size: 0.2, type: 'success', lifespan: 0.8, gravity: 1.0 });
-                     if (currentCase.cluesNeeded.every(clue => currentCase.cluesFound.includes(clue))) { addNotebookEntry("All necessary clues gathered!"); }
-                 } else {
-                    addNotebookEntry(`Measurement taken. Consistent reading.`);
-                    spawnParticles({ position: particlePos, count: PARTICLE_COUNT_CLICK, color: new THREE.Color(0xBBBBFF), velocityRange: 1.2, size: 0.1, type: 'tool_ok', lifespan: 0.5 });
-                 }
-             } else {
-                 // --- Failure --- (Replaced particles with text rocket)
-                 let reason = `The ${type} thermometer isn't suitable for measuring ${targetName}.`;
-                 /* ... specific failure reasons ... */ if (type === 'clinical' && currentCase.requiredThermometer !== 'clinical') reason = `A clinical thermometer is designed for body temperature, not this.`; if (type === 'lab' && currentCase.requiredThermometer !== 'lab') reason = `A lab thermometer is best for liquids or controlled environments. Try something else for ${targetName}.`; if (type === 'infrared' && currentCase.requiredThermometer !== 'infrared') reason = `An infrared thermometer measures surface heat. Is that what's needed here?`;
-
-                 showDialogue(reason);
-                 addNotebookEntry(`Wrong Tool: Used ${type} on ${targetName}. Needed ${currentCase.requiredThermometer}.`);
-                 playSound('error');
-                 startAnimation(targetObject, 'shake', 0.4); // Keep the shake
-
-                 // *** Launch Text Rocket instead of error particles ***
-                 const randomErrorMsg = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-                 launchFeedbackText(randomErrorMsg, particlePos); // Launch text from near the target
-             }
-         }
-        function solveCaseAttempt() {
-             if (!currentCase || currentCase.solved) { /* ... */ return; }
-             let allCluesFound = currentCase.cluesNeeded.every(clue => currentCase.cluesFound.includes(clue));
-
-             if (allCluesFound) {
-                 // --- Case Solved --- (Keep standard particles/flash)
-                 currentCase.solved = true;
-                 /* ... show dialogue, add entries, update display ... */ showDialogue(`CASE SOLVED: ${currentCase.title}!\n\nSummary: ${currentCase.successMessage}\n\nLesson Learned: ${currentCase.educationalNote}`); addNotebookEntry(`--- CASE STATUS: SOLVED ---`); addNotebookEntry(`Conclusion for ${currentCase.title}: ${currentCase.successMessage}`); addNotebookEntry(`Knowledge Gained: ${currentCase.educationalNote}`); updateCaseDisplay();
-                 playSound('case_solved');
-                 triggerScreenFlash();
-                 const centerPos = new THREE.Vector3(0, 0, 1);
-                 spawnParticles({ position: centerPos, count: 40, color: new THREE.Color(0xFFFF00), velocityRange: 3.5, size: 0.3, type: 'case_solved', lifespan: 1.2, gravity: 0.5 });
-
-                 const currentCaseId = currentCase.id;
-                 const nextCase = cases.find(c => c.id > currentCaseId && !c.solved);
-                 if (nextCase) { /* ... */ addNotebookEntry("Preparing for next assignment..."); setTimeout(() => { startCase(nextCase); }, 4500); }
-                 else { /* ... */ addNotebookEntry("--- ALL CASES CLOSED ---"); setTimeout(() => { showDialogue("CLASSIFIED! Excellent work, Detective! You've solved all available cases in Thermopolis."); currentCase = null; updateCaseDisplay(); }, 4500); }
-             } else {
-                 // --- Solve Attempt Failed --- (Replace particles with text rocket)
-                 let missingCluesCount = currentCase.cluesNeeded.length - currentCase.cluesFound.length;
-                 /* ... show dialogue, add entries ... */ showDialogue(`Negative... Intel still incomplete for ${currentCase.title}. ${currentCase.failureMessage || `Missing ${missingCluesCount} piece(s) of evidence.`}`); addNotebookEntry(`Solve attempt failed: Missing ${missingCluesCount} clue(s) for ${currentCase.title}.`);
-                 playSound('error');
-                 triggerScreenShake();
-
-                 // *** Launch Text Rocket from center instead of error particles ***
-                 const randomErrorMsg = errorMessages[Math.floor(Math.random() * errorMessages.length)];
-                 launchFeedbackText(randomErrorMsg, new THREE.Vector3(0, 0, 1));
-             }
-         }
-
-
-        // --- Audio --- (No changes needed here)
-        function toggleMute() { /* ... Same logic ... */ if (!audioContext || !masterGain) return; isMuted = !isMuted; masterGain.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime); document.getElementById('mute-button').innerText = isMuted ? 'Unmute' : 'Mute'; console.log("Audio Muted:", isMuted); if (!isMuted) { if (audioContext.state === 'suspended') { audioContext.resume().then(() => { console.log("AudioContext resumed on unmute."); if(assetsLoaded) startBGM(); }).catch(e=>console.error("Error resuming context on unmute:", e)); } else if (audioContext.state === 'running') { if(assetsLoaded) startBGM(); } } else { stopBGM(); } }
-        function playSound(type) { /* ... Same improved SFX logic ... */ if (!audioContext || !masterGain || isMuted) return; let oscType = 'square'; let freq = 440; let duration = 0.1; let vol = 0.07; let decay = duration * 0.9; const sfxGain = audioContext.createGain(); sfxGain.connect(masterGain); sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); switch (type) { case 'click': freq = 1200; duration = 0.03; vol = 0.05; decay = duration * 0.8; oscType = 'square'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; case 'navigate': playNote(392, 0.0, 0.08, 'square', 0.08); playNote(349, 0.08, 0.12, 'square', 0.08); return; case 'success': playNote(523.25, 0.0, 0.06, 'triangle', 0.1); playNote(659.25, 0.07, 0.06, 'triangle', 0.1); playNote(783.99, 0.14, 0.1, 'triangle', 0.1); return; case 'error': playNote(207, 0.0, 0.15, 'sawtooth', 0.1); playNote(196, 0.05, 0.15, 'sawtooth', 0.1); return; case 'new_case': playNote(440, 0.0, 0.1, 'sine', 0.09); playNote(587.33, 0.12, 0.1, 'sine', 0.09); playNote(554.37, 0.24, 0.15, 'sine', 0.09); return; case 'case_solved': playNote(523, 0.0, 0.1, 'square', 0.12); playNote(698, 0.15, 0.1, 'square', 0.12); playNote(784, 0.3, 0.1, 'square', 0.12); playNote(1046, 0.45, 0.3, 'square', 0.12); playNoise(0.0, 0.15, 0.03); playNoise(0.45, 0.2, 0.05); return; case 'use_tool': freq = 1568; duration = 0.05; vol = 0.06; decay = duration * 1.2; oscType = 'square'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; case 'dialogue': freq = 554; duration = 0.04; vol = 0.03; decay = duration; oscType = 'triangle'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.linearRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; default: freq = 440; duration = 0.1; vol = 0.05; decay = duration * 0.8; oscType = 'triangle'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; } const oscillator = audioContext.createOscillator(); oscillator.type = oscType; oscillator.frequency.setValueAtTime(freq, audioContext.currentTime); oscillator.connect(sfxGain); oscillator.start(audioContext.currentTime); oscillator.stop(audioContext.currentTime + duration); setTimeout(() => { if(sfxGain && sfxGain.numberOfOutputs > 0) sfxGain.disconnect(); }, (duration + 0.1) * 1000); }
-        function playNote(frequency, startTimeOffset, duration, type = 'square', gainValue = 0.1) { /* ... Same logic ... */ if (!audioContext || !masterGain || isMuted) return; const now = audioContext.currentTime; const startTime = now + startTimeOffset; const stopTime = startTime + duration; if (stopTime <= startTime) return; const noteGain = audioContext.createGain(); noteGain.connect(masterGain); noteGain.gain.setValueAtTime(0, Math.max(now, startTime - 0.001)); noteGain.gain.linearRampToValueAtTime(gainValue, startTime); noteGain.gain.setTargetAtTime(0.0001, startTime, duration / 3); const oscillator = audioContext.createOscillator(); oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, startTime); oscillator.connect(noteGain); oscillator.start(startTime); oscillator.stop(stopTime); setTimeout(() => { if (noteGain && noteGain.numberOfOutputs > 0) noteGain.disconnect(); if (oscillator) oscillator.disconnect(); }, (stopTime - now + 0.15) * 1000); }
-        function playNoise(startTimeOffset, duration, gainValue = 0.1) { /* ... Same improved logic ... */ if (!audioContext || !masterGain || isMuted) return; try { const now = audioContext.currentTime; const startTime = now + startTimeOffset; const stopTime = startTime + duration; if (stopTime <= startTime) return; const bufferSize = Math.max(1, Math.floor(audioContext.sampleRate * duration)); const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate); const output = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; } const noiseSource = audioContext.createBufferSource(); noiseSource.buffer = buffer; const noiseGain = audioContext.createGain(); noiseGain.connect(masterGain); noiseGain.gain.setValueAtTime(0, Math.max(now, startTime - 0.001)); noiseGain.gain.linearRampToValueAtTime(gainValue, startTime); noiseGain.gain.exponentialRampToValueAtTime(0.0001, stopTime); noiseSource.connect(noiseGain); noiseSource.start(startTime); setTimeout(() => { if (noiseGain && noiseGain.numberOfOutputs > 0) noiseGain.disconnect(); if(noiseSource) noiseSource.disconnect(); }, (stopTime - now + 0.15) * 1000); } catch (e){ console.error("Error playing noise:", e); } }
-        function startBGM() { /* ... Same BGM logic ... */ if (!audioContext || audioContext.state !== 'running' || !masterGain || bgmSource || isMuted) { return; } console.log("Attempting to start/loop BGM..."); const tempo = 90; const sixteenthNoteTime = (60 / tempo) / 4; const loopDuration = 32 * sixteenthNoteTime; const now = audioContext.currentTime; const loopStartTime = (nextLoopStartTime > now && nextLoopStartTime < now + loopDuration * 2) ? nextLoopStartTime : now + 0.1; const bgmGain = audioContext.createGain(); bgmGain.gain.value = 0.04; bgmGain.connect(masterGain); const currentLoopOscillators = []; const currentLoopNoise = []; bgmSource = { gainNode: bgmGain, oscillators: currentLoopOscillators, noise: currentLoopNoise, startTime: loopStartTime, timer: null }; const Cmaj = [261.63, 329.63, 392.00, 523.25]; const Amin = [220.00, 261.63, 329.63, 440.00]; const Fmaj = [174.61, 220.00, 261.63, 349.23]; const Gmaj = [196.00, 246.94, 329.63, 392.00]; const progression = [Cmaj, Amin, Fmaj, Gmaj]; function scheduleArp(arpNotes, chordStartTime, gainNode, type = 'triangle') { const noteDuration = sixteenthNoteTime * 1.5; arpNotes.forEach((freq, index) => { const noteStartTime = chordStartTime + index * sixteenthNoteTime; const noteStopTime = noteStartTime + noteDuration; if (noteStopTime <= noteStartTime) return; const osc = audioContext.createOscillator(); osc.type = type; osc.frequency.setValueAtTime(freq * 0.5, noteStartTime); osc.connect(gainNode); osc.start(noteStartTime); osc.stop(noteStopTime); currentLoopOscillators.push(osc); }); } for(let i = 0; i < progression.length; i++) { scheduleArp(progression[i], loopStartTime + i * (8 * sixteenthNoteTime), bgmGain); } function scheduleHat(hatStartTime, gainNode) { const noiseDur = sixteenthNoteTime * 0.5; const noiseGainVal = 0.015; const stopTime = hatStartTime + noiseDur; if (stopTime <= hatStartTime) return; try { const bufferSize = Math.max(1, Math.floor(audioContext.sampleRate * noiseDur)); const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate); const output = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; } const source = audioContext.createBufferSource(); source.buffer = buffer; const hpFilter = audioContext.createBiquadFilter(); hpFilter.type = 'highpass'; hpFilter.frequency.value = 8000; const hatGain = audioContext.createGain(); hatGain.gain.setValueAtTime(0, Math.max(now, hatStartTime - 0.001)); hatGain.gain.linearRampToValueAtTime(noiseGainVal, hatStartTime); hatGain.gain.exponentialRampToValueAtTime(0.0001, stopTime); source.connect(hpFilter).connect(hatGain).connect(gainNode); source.start(hatStartTime); currentLoopNoise.push(source); setTimeout(() => { if (hatGain && hatGain.numberOfOutputs > 0) hatGain.disconnect(); if (hpFilter) hpFilter.disconnect(); if(source) source.disconnect(); }, (stopTime - now + 0.15) * 1000); } catch (e) { console.error("Error scheduling hat:", e); } } for (let i = 0; i < 8; i++) { scheduleHat(loopStartTime + (i * 4 + 1) * sixteenthNoteTime, bgmGain); scheduleHat(loopStartTime + (i * 4 + 3) * sixteenthNoteTime, bgmGain); } nextLoopStartTime = loopStartTime + loopDuration; const delayUntilNextLoop = (nextLoopStartTime - audioContext.currentTime) * 1000; if (bgmTimer) clearTimeout(bgmTimer); if (delayUntilNextLoop > 10) { bgmSource.timer = setTimeout(() => { bgmSource = null; startBGM(); }, delayUntilNextLoop); } else { console.warn(`BGM loop delay too small (${delayUntilNextLoop.toFixed(2)}ms), scheduling next frame.`); bgmSource.timer = requestAnimationFrame(() => { bgmSource = null; startBGM(); }); } }
-        function stopBGM() { /* ... Same BGM stop logic ... */ console.log("Stopping BGM..."); if (bgmSource) { const sourceToStop = bgmSource; bgmSource = null; if (sourceToStop.timer) { if (typeof sourceToStop.timer === 'number') clearTimeout(sourceToStop.timer); else cancelAnimationFrame(sourceToStop.timer); } const now = audioContext.currentTime; sourceToStop.oscillators.forEach(osc => { try { osc.stop(now); osc.disconnect(); } catch (e) { /* Ignore */ } }); sourceToStop.noise.forEach(n => { try { n.stop(now); n.disconnect(); } catch (e) { /* Ignore */ } }); if (sourceToStop.gainNode) { try { sourceToStop.gainNode.gain.cancelScheduledValues(now); sourceToStop.gainNode.gain.setValueAtTime(sourceToStop.gainNode.gain.value, now); sourceToStop.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05); setTimeout(() => { if(sourceToStop.gainNode && sourceToStop.gainNode.numberOfOutputs > 0) sourceToStop.gainNode.disconnect(); }, 60); } catch(e) { console.warn("Error disconnecting BGM gain:", e); } } } nextLoopStartTime = 0; }
+        // --- Audio --- (No changes needed)
+        function toggleMute() { /* ... */ if (!audioContext || !masterGain) return; isMuted = !isMuted; masterGain.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime); document.getElementById('mute-button').innerText = isMuted ? 'Unmute' : 'Mute'; if (!isMuted) { if (audioContext.state === 'suspended') { audioContext.resume().then(() => { if(assetsLoaded) startBGM(); }).catch(e=>console.error(e)); } else if (audioContext.state === 'running') { if(assetsLoaded) startBGM(); } } else { stopBGM(); } }
+        function playSound(type) { /* ... */ if (!audioContext || !masterGain || isMuted) return; let oscType = 'square'; let freq = 440; let duration = 0.1; let vol = 0.07; let decay = duration * 0.9; const sfxGain = audioContext.createGain(); sfxGain.connect(masterGain); sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); switch (type) { case 'click': freq = 1200; duration = 0.03; vol = 0.05; decay = duration * 0.8; oscType = 'square'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; case 'navigate': playNote(392, 0.0, 0.08, 'square', 0.08); playNote(349, 0.08, 0.12, 'square', 0.08); return; case 'success': playNote(523.25, 0.0, 0.06, 'triangle', 0.1); playNote(659.25, 0.07, 0.06, 'triangle', 0.1); playNote(783.99, 0.14, 0.1, 'triangle', 0.1); return; case 'error': playNote(207, 0.0, 0.15, 'sawtooth', 0.1); playNote(196, 0.05, 0.15, 'sawtooth', 0.1); return; case 'new_case': playNote(440, 0.0, 0.1, 'sine', 0.09); playNote(587.33, 0.12, 0.1, 'sine', 0.09); playNote(554.37, 0.24, 0.15, 'sine', 0.09); return; case 'case_solved': playNote(523, 0.0, 0.1, 'square', 0.12); playNote(698, 0.15, 0.1, 'square', 0.12); playNote(784, 0.3, 0.1, 'square', 0.12); playNote(1046, 0.45, 0.3, 'square', 0.12); playNoise(0.0, 0.15, 0.03); playNoise(0.45, 0.2, 0.05); return; case 'use_tool': freq = 1568; duration = 0.05; vol = 0.06; decay = duration * 1.2; oscType = 'square'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; case 'dialogue': freq = 554; duration = 0.04; vol = 0.03; decay = duration; oscType = 'triangle'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.linearRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; default: freq = 440; duration = 0.1; vol = 0.05; decay = duration * 0.8; oscType = 'triangle'; sfxGain.gain.setValueAtTime(vol, audioContext.currentTime); sfxGain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decay); break; } const oscillator = audioContext.createOscillator(); oscillator.type = oscType; oscillator.frequency.setValueAtTime(freq, audioContext.currentTime); oscillator.connect(sfxGain); oscillator.start(audioContext.currentTime); oscillator.stop(audioContext.currentTime + duration); setTimeout(() => { if(sfxGain && sfxGain.numberOfOutputs > 0) sfxGain.disconnect(); }, (duration + 0.1) * 1000); }
+        function playNote(frequency, startTimeOffset, duration, type = 'square', gainValue = 0.1) { /* ... */ if (!audioContext || !masterGain || isMuted) return; const now = audioContext.currentTime; const startTime = now + startTimeOffset; const stopTime = startTime + duration; if (stopTime <= startTime) return; const noteGain = audioContext.createGain(); noteGain.connect(masterGain); noteGain.gain.setValueAtTime(0, Math.max(now, startTime - 0.001)); noteGain.gain.linearRampToValueAtTime(gainValue, startTime); noteGain.gain.setTargetAtTime(0.0001, startTime, duration / 3); const oscillator = audioContext.createOscillator(); oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, startTime); oscillator.connect(noteGain); oscillator.start(startTime); oscillator.stop(stopTime); setTimeout(() => { if (noteGain && noteGain.numberOfOutputs > 0) noteGain.disconnect(); if (oscillator) oscillator.disconnect(); }, (stopTime - now + 0.15) * 1000); }
+        function playNoise(startTimeOffset, duration, gainValue = 0.1) { /* ... */ if (!audioContext || !masterGain || isMuted) return; try { const now = audioContext.currentTime; const startTime = now + startTimeOffset; const stopTime = startTime + duration; if (stopTime <= startTime) return; const bufferSize = Math.max(1, Math.floor(audioContext.sampleRate * duration)); const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate); const output = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; } const noiseSource = audioContext.createBufferSource(); noiseSource.buffer = buffer; const noiseGain = audioContext.createGain(); noiseGain.connect(masterGain); noiseGain.gain.setValueAtTime(0, Math.max(now, startTime - 0.001)); noiseGain.gain.linearRampToValueAtTime(gainValue, startTime); noiseGain.gain.exponentialRampToValueAtTime(0.0001, stopTime); noiseSource.connect(noiseGain); noiseSource.start(startTime); setTimeout(() => { if (noiseGain && noiseGain.numberOfOutputs > 0) noiseGain.disconnect(); if(noiseSource) noiseSource.disconnect(); }, (stopTime - now + 0.15) * 1000); } catch (e){ console.error("Error playing noise:", e); } }
+        function startBGM() { /* ... */ if (!audioContext || audioContext.state !== 'running' || !masterGain || bgmSource || isMuted) { return; } console.log("Attempting to start/loop BGM..."); const tempo = 90; const sixteenthNoteTime = (60 / tempo) / 4; const loopDuration = 32 * sixteenthNoteTime; const now = audioContext.currentTime; const loopStartTime = (nextLoopStartTime > now && nextLoopStartTime < now + loopDuration * 2) ? nextLoopStartTime : now + 0.1; const bgmGain = audioContext.createGain(); bgmGain.gain.value = 0.04; bgmGain.connect(masterGain); const currentLoopOscillators = []; const currentLoopNoise = []; bgmSource = { gainNode: bgmGain, oscillators: currentLoopOscillators, noise: currentLoopNoise, startTime: loopStartTime, timer: null }; const Cmaj = [261.63, 329.63, 392.00, 523.25]; const Amin = [220.00, 261.63, 329.63, 440.00]; const Fmaj = [174.61, 220.00, 261.63, 349.23]; const Gmaj = [196.00, 246.94, 329.63, 392.00]; const progression = [Cmaj, Amin, Fmaj, Gmaj]; function scheduleArp(arpNotes, chordStartTime, gainNode, type = 'triangle') { const noteDuration = sixteenthNoteTime * 1.5; arpNotes.forEach((freq, index) => { const noteStartTime = chordStartTime + index * sixteenthNoteTime; const noteStopTime = noteStartTime + noteDuration; if (noteStopTime <= noteStartTime) return; const osc = audioContext.createOscillator(); osc.type = type; osc.frequency.setValueAtTime(freq * 0.5, noteStartTime); osc.connect(gainNode); osc.start(noteStartTime); osc.stop(noteStopTime); currentLoopOscillators.push(osc); }); } for(let i = 0; i < progression.length; i++) { scheduleArp(progression[i], loopStartTime + i * (8 * sixteenthNoteTime), bgmGain); } function scheduleHat(hatStartTime, gainNode) { const noiseDur = sixteenthNoteTime * 0.5; const noiseGainVal = 0.015; const stopTime = hatStartTime + noiseDur; if (stopTime <= hatStartTime) return; try { const bufferSize = Math.max(1, Math.floor(audioContext.sampleRate * noiseDur)); const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate); const output = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; } const source = audioContext.createBufferSource(); source.buffer = buffer; const hpFilter = audioContext.createBiquadFilter(); hpFilter.type = 'highpass'; hpFilter.frequency.value = 8000; const hatGain = audioContext.createGain(); hatGain.gain.setValueAtTime(0, Math.max(now, hatStartTime - 0.001)); hatGain.gain.linearRampToValueAtTime(noiseGainVal, hatStartTime); hatGain.gain.exponentialRampToValueAtTime(0.0001, stopTime); source.connect(hpFilter).connect(hatGain).connect(gainNode); source.start(hatStartTime); currentLoopNoise.push(source); setTimeout(() => { if (hatGain && hatGain.numberOfOutputs > 0) hatGain.disconnect(); if (hpFilter) hpFilter.disconnect(); if(source) source.disconnect(); }, (stopTime - now + 0.15) * 1000); } catch (e) { console.error("Error scheduling hat:", e); } } for (let i = 0; i < 8; i++) { scheduleHat(loopStartTime + (i * 4 + 1) * sixteenthNoteTime, bgmGain); scheduleHat(loopStartTime + (i * 4 + 3) * sixteenthNoteTime, bgmGain); } nextLoopStartTime = loopStartTime + loopDuration; const delayUntilNextLoop = (nextLoopStartTime - audioContext.currentTime) * 1000; if (bgmTimer) clearTimeout(bgmTimer); if (delayUntilNextLoop > 10) { bgmSource.timer = setTimeout(() => { bgmSource = null; startBGM(); }, delayUntilNextLoop); } else { console.warn(`BGM loop delay too small (${delayUntilNextLoop.toFixed(2)}ms), scheduling next frame.`); bgmSource.timer = requestAnimationFrame(() => { bgmSource = null; startBGM(); }); } }
+        function stopBGM() { /* ... */ console.log("Stopping BGM..."); if (bgmSource) { const sourceToStop = bgmSource; bgmSource = null; if (sourceToStop.timer) { if (typeof sourceToStop.timer === 'number') clearTimeout(sourceToStop.timer); else cancelAnimationFrame(sourceToStop.timer); } const now = audioContext.currentTime; sourceToStop.oscillators.forEach(osc => { try { osc.stop(now); osc.disconnect(); } catch (e) { /* Ignore */ } }); sourceToStop.noise.forEach(n => { try { n.stop(now); n.disconnect(); } catch (e) { /* Ignore */ } }); if (sourceToStop.gainNode) { try { sourceToStop.gainNode.gain.cancelScheduledValues(now); sourceToStop.gainNode.gain.setValueAtTime(sourceToStop.gainNode.gain.value, now); sourceToStop.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05); setTimeout(() => { if(sourceToStop.gainNode && sourceToStop.gainNode.numberOfOutputs > 0) sourceToStop.gainNode.disconnect(); }, 60); } catch(e) { console.warn("Error disconnecting BGM gain:", e); } } } nextLoopStartTime = 0; }
 
         // --- Utility ---
         function onWindowResize() { /* ... Same logic ... */ const containerWidth = gameContainerElement.clientWidth; const containerHeight = gameContainerElement.clientHeight; if (containerWidth === 0 || containerHeight === 0) return; const aspect = containerWidth / containerHeight; cameraBaseFrustumSize = 16; const currentFrustumHeight = cameraBaseFrustumSize / camera.zoom; camera.left = currentFrustumHeight * aspect / -2; camera.right = currentFrustumHeight * aspect / 2; camera.top = currentFrustumHeight / 2; camera.bottom = currentFrustumHeight / -2; camera.updateProjectionMatrix(); renderer.setSize(containerWidth, containerHeight); renderer.domElement.style.width = `${containerWidth}px`; renderer.domElement.style.height = `${containerHeight}px`; }
